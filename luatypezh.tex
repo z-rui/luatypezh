@@ -1,0 +1,179 @@
+% nice to guard against double loading...
+
+\ifx\zhfont\undefined\else
+  \expandafter\endinput
+\fi
+
+\directlua{lua.bytecode[0]=assert(loadfile(kpse.find_file("luatypezh.lua")))}
+
+\catcode`@=11
+
+\ifx\zh@song \undefined
+  % 使用 Adobe 的 Source 宋体
+  % https://github.com/adobe-fonts/source-han-serif
+  \def\zh@rm{sourcehanserifsc-regular}
+  \def\zh@tt{sourcehanserifsc-regular}
+  \def\zh@bf{sourcehanserifsc-bold}
+  % 使用 Adobe 的 Source 黑体
+  \def\zh@it{sourcehansanssc-regular}
+  \def\zh@sl{sourcehansanssc-regular}
+\fi
+
+\newfam\zhfam % 数学中的中文字体族
+\def\zhmathchars#1#2{{\countdef\i=\z@\countdef\j=\tw@
+  \i=#1 \j=#2
+  \loop \global\Umathcode\i \z@ \zhfam \i
+  \ifnum\i<\j \advance\i \@ne \repeat}}
+
+% 在数学环境中使用中文
+\zhmathchars{"4E00}{"9FFF}
+\zhmathchars{"20000}{"2EBEF} % BMP 以外的字符
+
+\ifx\selectfont\undefined\else % NFSS
+  \let\zh@textfont\nullfont
+  \let\zh@scriptfont\nullfont
+  \let\zh@scriptscriptfont\nullfont
+  \toksapp\every@math@size{\zh@math@size}
+  \def\zh@math@size{{\escapechar\m@ne
+    \directlua{luatypezh.mathhook(
+      [[\the\textfont\z@]],
+      [[\the\scriptfont\z@]],
+      [[\the\scriptscriptfont\z@]])}}%
+    % XXX why global?
+    \global\textfont\zhfam\zh@textfont
+    \global\scriptfont\zhfam\zh@scriptfont
+    \global\scriptscriptfont\zhfam\zh@scriptscriptfont}
+\fi
+
+\sfcode`”0    \sfcode`’0    \sfcode`）0
+
+\def\zhnonfrenchspacing{%
+  \sfcode`。3000\sfcode`？3000\sfcode`！3000%
+  \sfcode`：2000\sfcode`；1500\sfcode`，1250%
+  \sfcode`、1100}
+\def\zhfrenchspacing{%
+  \sfcode`。\@m\sfcode`？\@m\sfcode`！\@m
+  \sfcode`：\@m\sfcode`；\@m\sfcode`，\@m
+  \sfcode`、\@m}
+\zhnonfrenchspacing
+
+\let\@frenchspacing\frenchspacing
+\let\@nonfrenchspacing\nonfrenchspacing
+
+% Patch \(non)frenchspacing
+\expandafter\expandafter\expandafter\def
+\expandafter\expandafter\expandafter\frenchspacing
+\expandafter\expandafter\expandafter
+{\expandafter\frenchspacing\zhfrenchspacing}
+
+\expandafter\expandafter\expandafter\def
+\expandafter\expandafter\expandafter\nonfrenchspacing
+\expandafter\expandafter\expandafter
+{\expandafter\nonfrenchspacing\zhnonfrenchspacing}
+
+% assign a `kindcode' to cjk characters
+% 1: left punct (
+% 2: right punct )
+% 3: ordinary cjk
+\def\zhsetkind#1#2{\begingroup
+  \def\next##1{\ifx##1\relax\let\next\endgroup
+    \else\zhs@tkind{`##1}{#1}\fi\next}%
+  \next#2\relax}
+\def\zhs@tkind#1#2{%
+  \directlua{luatypezh.setkind(\number#1,#2)}}
+
+\def\zh@ttwd{%
+  % XXX em-size of lmtt10 (and maybe others) is broken
+  % try to calculate the real size
+  \setbox\z@\hbox{X}}
+
+\def\zh@font#1#2#3{\relax
+  \directlua{luatypezh.setup(\fontid#1,\fontid#2,#3)}}
+\def\zhfont#1#2{\zh@font{#1}{#2}{false}}
+\def\zhttfont#1#2{{#1\zh@ttwd\zh@font{#1}{#2}{true}}}
+
+% Plain TeX
+\ifx\tenrm\undefined\else
+  \def\zh@setup@{% XXX 每次启动时载入字体比把字体 \dump 在 .fmt 里更快
+    \font\tenitzh "\zh@it" at 10\p@
+    \font\tenslzh "\zh@sl" at 10\p@
+    \font\tenbfzh "\zh@bf" at 10\p@
+    \font\tenttzh "\zh@tt" at 10\p@
+    \font\tenrmzh "\zh@rm" at 10\p@
+    \font\sevenrmzh "\zh@rm" at 7\p@
+    \font\fivermzh "\zh@rm" at 5\p@
+    % 数学字体使用 10pt 宋体
+    % 如需临时使用其他字体，请使用 \hbox{...}
+    \textfont\zhfam \tenrmzh
+    \scriptfont\zhfam \sevenrmzh
+    \scriptscriptfont\zhfam \fivermzh
+    % 设置字体替代
+    \zhfont\tenrm\tenrmzh
+    \zhfont\sevenrm\sevenrmzh
+    \zhfont\fiverm\fivermzh
+    \zhfont\tenit\tenitzh
+    \zhfont\tensl\tenslzh
+    \zhfont\tenbf\tenbfzh
+    \zhttfont\tentt\tenttzh
+  }
+  % 把 \beginsection 修改为首段也缩进
+  \let\@beginsection\beginsection
+  {\def\strip#1\noindent{#1}
+  \expandafter\expandafter\expandafter \outer
+  \expandafter\expandafter\expandafter \gdef
+  \expandafter\expandafter\expandafter \beginsection
+  \expandafter\expandafter\expandafter #%
+  \expandafter\expandafter\expandafter 1%
+  \expandafter\expandafter\expandafter \par
+  \expandafter\expandafter\expandafter {%
+  \expandafter\strip\beginsection#1\par}}
+\fi
+
+% LaTeX
+\ifx\selectfont\undefined\else
+  \def\zh@nfss#1#2#3{\relax
+    \directlua{luatypezh.nfss("#1","#2",#3)}}
+  \def\zhnfss#1#2{\zh@nfss{#1}{#2}{false}}
+  \def\zhnftt#1#2{\zh@nfss{#1}{#2}{true}}
+  \def\zh@nfssupdate{{\zh@ttwd\escapechar\m@ne
+    \directlua{luatypezh.nfsshook([[\font@name]])}}}
+  % patch \selectfont
+  \begingroup
+    \expandafter\let\expandafter\next\csname selectfont \endcsname
+    \expandafter\long\expandafter\def\expandafter\next
+      \expandafter{\next\zh@nfssupdate}
+    \expandafter\global\expandafter\let\csname selectfont \endcsname\next
+  \endgroup
+
+  \def\zh@setup@{% poor NFSS hack
+    \zhnfss{.*/.*/.*/.*/}\zh@rm
+    \zhnftt{.*/.*tt/.*/.*/}\zh@tt
+    \zhnftt{.*/.*tt/bx/.*/}\zh@bf
+    \zhnfss{.*/.*/bx/.*/}\zh@bf
+    \zhnfss{.*/.*/.*/it/}\zh@it
+    \zhnfss{.*/.*/.*/sl/}\zh@sl
+  }
+\fi
+
+\def\zh@setup{% 由 Lua 记录的状态必须在 \everyjob 中设置
+  \directlua{luatypezh=lua.bytecode[0]()}%
+  %
+  % 以下标点符号将被压缩左边界
+  \zhsetkind1{〈《「『【〔（｛‘“}% 左括号
+  % 以下标点符号将被压缩右边界
+  \zhsetkind2{〉》」』】〕）｝’”}% 右括号
+  \zhsetkind2{、。，．？！：；}%
+  % 以下标点符号被当作普通字符处理
+  \zhsetkind3{—…·￥}%
+  %
+  \zh@setup@
+}
+
+\ifx\INITEX+
+  \let\INITEX\undefined
+  \everyjob{\zh@setup}
+\else
+  \zh@setup
+\fi
+
+\catcode`@=12
