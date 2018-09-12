@@ -172,14 +172,14 @@ local function zh_filter(head, groupcode)
         local maybeglue = false
         local tt = t
         if adj_tt then
-          node.insert_before(head, t, ttkern(t, adj_tt))
+          head = node.insert_before(head, t, ttkern(t, adj_tt))
         end
         --print(t.char, kind, adj_tt)
         if kind == 3 then
           maybeglue = true
         elseif kind == 1 then
           if not adj_tt then
-            node.insert_before(head, t, negkern(t, adj))
+            head = node.insert_before(head, t, negkern(t, adj))
           end
         elseif kind == 2 then
           maybeglue = true
@@ -206,7 +206,7 @@ local function zh_filter(head, groupcode)
       end
     end
   end
-  return true
+  return head
 end
 
 callback_register('pre_linebreak_filter', zh_filter, 'zh_filter')
